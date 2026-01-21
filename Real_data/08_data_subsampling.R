@@ -36,14 +36,11 @@ options(scipen = 999)
 summary(model_sub_1)
 
 # For 10% subsampling
-set.seed(123)
+set.seed(6783467)
 df_sub_10 <- df_cleaned[sample(N, size = as.integer(0.1*N), replace = F), ]
 
 model_sub_10 <- glm(delayed ~ Year+Month+DayOfWeek+ActualElapsedTime+schedule_Dep,
                    data = df_sub_10, family = binomial)
 summary(model_sub_10)
-
-
-
 
 
