@@ -21,7 +21,7 @@ theta <- c(2,1)
 
 #choose one contamination setting:
 #"Uncontaminated", "Omniscient", "Gaussian", or "Bit-flip"
-attack <- "Omniscient"
+attack <- "Uncontaminated"
 
 #number of contaminated machines
 number_attacked <- floor(K^(1/4))
