@@ -214,7 +214,8 @@ if(!dir.exists(output_folder)){
 output_file <- file.path(
   output_folder,
   paste0(
-    "K=",K,
+    "model=linear",
+    "_K=",K,
     "_n=",n,
     "_c=",huber_c,
     "_attack=",attack,
