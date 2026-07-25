@@ -20,7 +20,8 @@ R <- 100 #number of replications
 theta <- c(2,1)
 
 #choose one contamination setting:
-#"Uncontaminated", "Omniscient", "Gaussian", or "Bit-flip"
+#"Uncontaminated", "Omniscient", "Gaussian",
+#"Bit-flip", or "Covariate"
 attack <- "Uncontaminated"
 
 #number of contaminated machines
@@ -119,11 +120,21 @@ for(i in 1:R){
   
   for(k in 1:K){
     
+    #generate the clean covariates
     X <- rnorm(n*2)
     dim(X) <- c(n,2)
     
+    #generate the response using the clean covariates
     e <- rnorm(n)
     Y <- as.numeric(X%*%theta+e)
+    
+    #replace both covariates on the attacked machines
+    #the response generated above remains unchanged
+    if(attack=="Covariate" && k<=number_attacked){
+      
+      X[,1] <- rchisq(n,df=30)
+      X[,2] <- rchisq(n,df=30)
+    }
     
     simu_data <- data.frame(
       Y=Y,
@@ -147,7 +158,7 @@ for(i in 1:R){
   
   
   #########################################################---
-  ## 5.2 Apply the selected contamination setting ----
+  ## 5.2 Apply the estimate contamination setting ----
   #########################################################---
   
   theta_list_attack <- theta_list

@@ -20,7 +20,8 @@ R <- 100 #number of replications
 theta <- c(2,1)
 
 #choose one contamination setting:
-#"Uncontaminated", "Omniscient", "Gaussian", or "Bit-flip"
+#"Uncontaminated", "Omniscient", "Gaussian",
+#"Bit-flip", "Covariate", or "Response"
 attack <- "Uncontaminated"
 
 #number of contaminated machines
@@ -130,15 +131,54 @@ for(i in 1:R){
   
   for(k in 1:K){
     
+    #generate the clean covariates
     X <- rnorm(n*2)
     dim(X) <- c(n,2)
     
+    #generate the response using the clean covariates
     probability <- as.numeric(plogis(X%*%theta))
+    
     Y <- rbinom(
       n,
       size=1,
       prob=probability
     )
+    
+    
+    #########################################################---
+    ### 5.1.1 Apply covariate contamination ----
+    #########################################################---
+    
+    #replace both covariates on the attacked machines
+    #the response generated above remains unchanged
+    if(attack=="Covariate" && k<=number_attacked){
+      
+      X[,1] <- rchisq(n,df=30)
+      X[,2] <- rchisq(n,df=30)
+    }
+    
+    
+    #########################################################---
+    ### 5.1.2 Apply response contamination ----
+    #########################################################---
+    
+    #flip each binary response independently
+    #with probability 0.2 on the attacked machines
+    if(attack=="Response" && k<=number_attacked){
+      
+      response_flip <- rbinom(
+        n,
+        size=1,
+        prob=0.2
+      )
+      
+      Y[response_flip==1] <- 1-Y[response_flip==1]
+    }
+    
+    
+    #########################################################---
+    ### 5.1.3 Fit the local logistic regression ----
+    #########################################################---
     
     simu_data <- data.frame(
       Y=Y,
@@ -163,7 +203,7 @@ for(i in 1:R){
   
   
   #########################################################---
-  ## 5.2 Apply the selected contamination setting ----
+  ## 5.2 Apply the estimate contamination setting ----
   #########################################################---
   
   theta_list_attack <- theta_list
