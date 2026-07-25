@@ -17,11 +17,10 @@ library("nleqslv")
 K <- 60
 n <- 5000
 N <- n*K
-R <- 100
+R <- 100 #number of replications
 theta <- c(2,1)
 
 #choose one contamination setting:
-#"Uncontamin contamination setting:
 #"Uncontaminated", "Omniscient", "Gaussian", or "Bit-flip"
 attack <- "Omniscient"
 
@@ -81,7 +80,7 @@ robust_aggregation <- function(theta,theta_vector,n,sigma,c=3){
 
 
 #define the local asymptotic covariance estimator
-# This is for linear regression only
+#this is for linear regression only
 local_sigma_estimator <- function(theta,X,Y){
   
   local_n <- dim(X)[1]
@@ -104,10 +103,10 @@ local_sigma_estimator <- function(theta,X,Y){
   
   sigma_hat <- solve(U_hat)%*%V_hat%*%solve(U_hat)
   
-  # Cap each matrix entry between -10^3 and 10^3
-  # Otherwise numerical optimization could handle too large value
-  sigma_hat[sigma_hat > 10^3] <- 10^3
-  sigma_hat[sigma_hat < -10^3] <- -10^3
+  #cap each matrix entry between -10^3 and 10^3
+  #otherwise numerical optimization could handle too large value
+  sigma_hat[sigma_hat>10^3] <- 10^3
+  sigma_hat[sigma_hat<(-10^3)] <- -10^3
   
   return(sigma_hat)
 }
@@ -192,6 +191,45 @@ spatial_median_sigma <- function(sigma_list,n){
 }
 
 
+#define the contamination detection method
+detect_contaminated_machines <- function(
+    theta_vector,
+    robust_estimate,
+    n,
+    sigma,
+    alpha=0.05
+){
+  
+  number_machines <- dim(theta_vector)[1]
+  parameter_dimension <- length(robust_estimate)
+  
+  chi_squared_cutoff <- qchisq(
+    1-alpha,
+    df=parameter_dimension
+  )
+  
+  sigma_inverse <- solve(sigma)
+  detected <- rep(FALSE,number_machines)
+  
+  for(k in 1:number_machines){
+    
+    difference <- as.numeric(
+      theta_vector[k,]-robust_estimate
+    )
+    
+    distance_squared <- n*as.numeric(
+      t(difference)%*%sigma_inverse%*%difference
+    )
+    
+    detected[k] <- distance_squared>chi_squared_cutoff
+  }
+  
+  detected_machines <- which(detected)
+  
+  return(detected_machines)
+}
+
+
 
 
 
@@ -214,7 +252,7 @@ if(!dir.exists(output_folder)){
 output_file <- file.path(
   output_folder,
   paste0(
-    "model=linear",
+    "model=linear_robust",
     "_K=",K,
     "_n=",n,
     "_c=",huber_c,
@@ -262,9 +300,16 @@ for(i in 1:R){
       X2=X[,2]
     )
     
-    model_sub <- lm(Y~.-1,data=simu_data)
+    model_sub <- lm(
+      Y~.-1,
+      data=simu_data
+    )
     
-    theta_list <- rbind(theta_list,model_sub$coefficients)
+    theta_list <- rbind(
+      theta_list,
+      model_sub$coefficients
+    )
+    
     X_list[[k]] <- X
     Y_list[[k]] <- Y
   }
@@ -325,9 +370,6 @@ for(i in 1:R){
   )
   
   
-  
-  
-  
   #########################################################---
   ## 5.5 Calculate the robust aggregated estimator ----
   #########################################################---
@@ -347,6 +389,35 @@ for(i in 1:R){
   
   
   #########################################################---
+  ## 5.6 Detect contamination and calculate hit rate ----
+  #########################################################---
+  
+  detected_machines <- detect_contaminated_machines(
+    theta_vector=theta_list_attack,
+    robust_estimate=robust_estimate,
+    n=n,
+    sigma=full_sigma,
+    alpha=0.05
+  )
+  
+  if(attack=="Uncontaminated"){
+    
+    hit_rate <- NA_real_
+    
+  }else{
+    
+    contaminated_machines <- 1:number_attacked
+    
+    correctly_detected <- intersect(
+      detected_machines,
+      contaminated_machines
+    )
+    
+    hit_rate <- length(correctly_detected)/number_attacked
+  }
+  
+  
+  #########################################################---
   ## 5.7 Calculate standard errors and confidence intervals ----
   #########################################################---
   
@@ -363,8 +434,10 @@ for(i in 1:R){
   #########################################################---
   
   estimation <- data.frame(
-    t(data.frame(as.vector(cbind(robust_estimate,robust_SE,CI))))
-  )
+    t(data.frame(c(as.vector(cbind(
+              robust_estimate,
+              robust_SE,
+              CI)), hit_rate))))
   
   fwrite(
     estimation,
